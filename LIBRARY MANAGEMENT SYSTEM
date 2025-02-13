@@ -1,0 +1,178 @@
+#include <iostream>
+#include <vector>
+#include <ctime>
+#include <string>
+
+using namespace std;
+
+// Book class to manage book details
+class Book {
+public:
+    string title;
+    string author;
+    string ISBN;
+    bool isAvailable;
+
+    Book(string t, string a, string i) : title(t), author(a), ISBN(i), isAvailable(true) {}
+
+    void display() {
+        cout << "Title: " << title << ", Author: " << author << ", ISBN: " << ISBN << endl;
+    }
+};
+
+// Borrower class to manage borrower details
+class Borrower {
+public:
+    string name;
+    string id;
+    vector<Book*> borrowedBooks;
+
+    Borrower(string n, string i) : name(n), id(i) {}
+
+    void display() {
+        cout << "Borrower Name: " << name << ", ID: " << id << endl;
+    }
+
+    void borrowBook(Book* book) {
+        borrowedBooks.push_back(book);
+        book->isAvailable = false;
+    }
+
+    void returnBook(Book* book) {
+        for (size_t i = 0; i < borrowedBooks.size(); ++i) {
+            if (borrowedBooks[i] == book) {
+                borrowedBooks.erase(borrowedBooks.begin() + i);
+                book->isAvailable = true;
+                break;
+            }
+        }
+    }
+};
+
+// Transaction class to handle checkouts and returns
+class Transaction {
+public:
+    Borrower* borrower;
+    Book* book;
+    time_t checkoutTime;
+    time_t returnTime;
+    bool isReturned;
+
+    Transaction(Borrower* b, Book* bk) : borrower(b), book(bk), isReturned(false) {
+        checkoutTime = time(0); // Capture checkout time
+    }
+
+    void returnBook() {
+        returnTime = time(0); // Capture return time
+        isReturned = true;
+    }
+
+    int calculateFine() {
+        if (!isReturned) return 0; // Fine can only be calculated after return
+        double lateDays = difftime(returnTime, checkoutTime) / (60 * 60 * 24); // Get days overdue
+        if (lateDays <= 0) return 0; // No fine if returned on time
+        return static_cast<int>(lateDays * 2); // Example: 2 units of fine per day overdue
+    }
+};
+
+// Library class to manage the library system
+class Library {
+private:
+    vector<Book> books;
+    vector<Borrower> borrowers;
+    vector<Transaction> transactions;
+
+public:
+    void addBook(string title, string author, string ISBN) {
+        books.push_back(Book(title, author, ISBN));
+    }
+
+    void addBorrower(string name, string id) {
+        borrowers.push_back(Borrower(name, id));
+    }
+
+    Book* searchBook(string searchQuery) {
+        for (auto& book : books) {
+            if (book.title == searchQuery || book.author == searchQuery || book.ISBN == searchQuery) {
+                return &book;
+            }
+        }
+        return nullptr;
+    }
+
+    Borrower* searchBorrower(string id) {
+        for (auto& borrower : borrowers) {
+            if (borrower.id == id) {
+                return &borrower;
+            }
+        }
+        return nullptr;
+    }
+
+    void checkoutBook(Borrower* borrower, Book* book) {
+        if (book && book->isAvailable) {
+            borrower->borrowBook(book);
+            transactions.push_back(Transaction(borrower, book));
+            cout << "Book checked out successfully!" << endl;
+        } else {
+            cout << "Book is not available for checkout." << endl;
+        }
+    }
+
+    void returnBook(Borrower* borrower, Book* book) {
+        borrower->returnBook(book);
+        for (auto& trans : transactions) {
+            if (trans.borrower == borrower && trans.book == book && !trans.isReturned) {
+                trans.returnBook();
+                int fine = trans.calculateFine();
+                cout << "Book returned. Fine: " << fine << " units." << endl;
+                return;
+            }
+        }
+        cout << "Transaction not found!" << endl;
+    }
+
+    void displayBooks() {
+        for (auto& book : books) {
+            book.display();
+        }
+    }
+
+    void displayBorrowers() {
+        for (auto& borrower : borrowers) {
+            borrower.display();
+        }
+    }
+};
+
+int main() {
+    Library lib;
+
+    // Adding books to library
+    lib.addBook("The Catcher in the Rye", "J.D. Salinger", "978-0316769488");
+    lib.addBook("To Kill a Mockingbird", "Harper Lee", "978-0061120084");
+    lib.addBook("1984", "George Orwell", "978-0451524935");
+
+    // Adding borrowers
+    lib.addBorrower("Alice", "B001");
+    lib.addBorrower("Bob", "B002");
+
+    // Display all books
+    cout << "Books in the library:" << endl;
+    lib.displayBooks();
+
+    // Searching and checking out a book
+    Book* bookToCheckout = lib.searchBook("1984");
+    Borrower* borrower1 = lib.searchBorrower("B001");
+
+    if (bookToCheckout && borrower1) {
+        lib.checkoutBook(borrower1, bookToCheckout);
+    }
+
+    // Returning the book after some days
+    // Simulate time delay
+    cout << "\nSimulating book return..." << endl;
+    lib.returnBook(borrower1, bookToCheckout);
+
+    return 0;
+}
